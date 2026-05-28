@@ -1,0 +1,1031 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Maze Game</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800;900&display=swap');
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  :root {
+    --c-bg: #f9f7f2;
+    --c-ink: #1a1a1a;
+    --c-muted: #777;
+    --c-border: #e0e0e0;
+    --c-accent: #ff6b35;
+    --c-easy: #4caf7d;
+    --c-medium: #f5a623;
+    --c-hard: #e05252;
+    --c-card: #fff;
+  }
+
+  body {
+    font-family: 'Nunito', sans-serif;
+    background: var(--c-bg);
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+    color: var(--c-ink);
+  }
+
+  /* ── SCREENS ── */
+  .screen { display: none; width: 100%; max-width: 540px; margin: 0 auto; text-align: center; }
+  .screen.active { display: block; animation: screenPop 0.38s cubic-bezier(.34,1.56,.64,1); }
+  .screen.fade-out { animation: screenFade 0.22s ease forwards; pointer-events: none; }
+
+  @keyframes screenPop {
+    from { opacity: 0; transform: scale(0.93) translateY(8px); }
+    to   { opacity: 1; transform: scale(1) translateY(0); }
+  }
+  @keyframes screenFade {
+    to { opacity: 0; transform: scale(0.97); }
+  }
+
+  /* ── SHARED ── */
+  .site-label {
+    font-size: 13px; font-weight: 700; letter-spacing: 0.12em;
+    color: #aaa; text-transform: uppercase; margin-bottom: 32px;
+  }
+  .site-label span { color: var(--c-accent); }
+
+  h1 {
+    font-size: clamp(2rem, 6vw, 3rem); font-weight: 900;
+    color: var(--c-ink); line-height: 1.1; margin-bottom: 12px;
+  }
+
+  .subtitle {
+    font-size: 1rem; color: var(--c-muted); line-height: 1.6;
+    max-width: 360px; margin: 0 auto 36px;
+  }
+
+  .btn {
+    display: inline-block; font-family: 'Nunito', sans-serif;
+    font-size: 1rem; font-weight: 800; padding: 14px 36px;
+    border-radius: 999px; border: none; cursor: pointer;
+    transition: transform 0.15s, box-shadow 0.15s, opacity 0.15s, background 0.2s;
+    text-decoration: none; position: relative; overflow: hidden;
+  }
+  .btn::after {
+    content: ''; position: absolute; inset: 0;
+    background: rgba(255,255,255,0); transition: background 0.15s;
+    border-radius: inherit;
+  }
+  .btn:hover { transform: translateY(-2px); box-shadow: 0 6px 20px rgba(0,0,0,0.12); }
+  .btn:hover::after { background: rgba(255,255,255,0.08); }
+  .btn:active { transform: translateY(1px); box-shadow: 0 2px 6px rgba(0,0,0,0.1); }
+  .btn:disabled { opacity: 0.45; cursor: not-allowed; transform: none; box-shadow: none; }
+
+  .btn-primary { background: var(--c-ink); color: #fff; }
+  .btn-outline  { background: var(--c-card); color: var(--c-ink); border: 2px solid var(--c-border); margin-top: 12px; }
+
+  /* ── WELCOME ── */
+  .wave-emoji {
+    font-size: 3.5rem; display: block; margin-bottom: 16px;
+    animation: wave 1.5s ease-in-out 0.4s 2; transform-origin: 70% 80%;
+  }
+  @keyframes wave { 0%,100%{transform:rotate(0)} 20%{transform:rotate(-15deg)} 60%{transform:rotate(15deg)} }
+
+  .level-pills { display: flex; gap: 10px; justify-content: center; margin-bottom: 36px; flex-wrap: wrap; }
+  .pill {
+    font-size: 0.78rem; font-weight: 700; padding: 6px 16px;
+    border-radius: 999px; border: 2px solid;
+  }
+  .pill.easy   { border-color: var(--c-easy);   color: var(--c-easy);   background: #f0fff6; }
+  .pill.medium { border-color: var(--c-medium); color: var(--c-medium); background: #fff9f0; }
+  .pill.hard   { border-color: var(--c-hard);   color: var(--c-hard);   background: #fff5f5; }
+
+  /* CODE WORD INPUT — replaces number input */
+  .codename-wrap { margin-bottom: 24px; position: relative; display: inline-block; }
+  .codename-wrap label {
+    display: block; font-size: 0.8rem; color: #999;
+    margin-bottom: 8px; font-weight: 600; letter-spacing: 0.06em;
+  }
+  .codename-input-row { display: flex; align-items: center; gap: 8px; justify-content: center; }
+  .codename-input-row input {
+    font-family: 'Nunito', sans-serif; font-size: 1rem; font-weight: 700;
+    padding: 12px 20px; border: 2px solid var(--c-border); border-radius: 999px;
+    outline: none; width: 200px; text-align: center; background: var(--c-card);
+    transition: border-color 0.2s, box-shadow 0.2s;
+    letter-spacing: 0.04em;
+  }
+  .codename-input-row input:focus {
+    border-color: var(--c-ink);
+    box-shadow: 0 0 0 3px rgba(26,26,26,0.08);
+  }
+  .codename-input-row input.has-value { border-color: var(--c-easy); }
+  .btn-dice {
+    background: var(--c-card); border: 2px solid var(--c-border); border-radius: 50%;
+    width: 42px; height: 42px; font-size: 1.1rem; cursor: pointer;
+    transition: transform 0.2s, border-color 0.2s; flex-shrink: 0;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .btn-dice:hover { transform: rotate(20deg) scale(1.1); border-color: var(--c-ink); }
+  .btn-dice:active { transform: rotate(40deg) scale(0.95); }
+  .codename-hint { font-size: 0.72rem; color: #bbb; margin-top: 6px; font-weight: 600; }
+
+  /* ── GAME SCREEN ── */
+  #gameScreen .top-bar {
+    display: flex; justify-content: space-between; align-items: center;
+    margin-bottom: 14px; padding: 0 4px;
+  }
+  .level-badge {
+    font-size: 0.7rem; font-weight: 800; letter-spacing: 0.12em;
+    text-transform: uppercase; padding: 5px 14px; border-radius: 999px; border: 2px solid;
+    transition: border-color 0.3s, color 0.3s;
+  }
+  .level-badge.easy   { border-color: var(--c-easy);   color: var(--c-easy); }
+  .level-badge.medium { border-color: var(--c-medium); color: var(--c-medium); }
+  .level-badge.hard   { border-color: var(--c-hard);   color: var(--c-hard); }
+
+  .stat-chips { display: flex; gap: 12px; align-items: center; }
+  .stat-chip { font-size: 0.82rem; font-weight: 700; color: #555; }
+  .stat-chip span { color: var(--c-ink); transition: color 0.15s; }
+  .stat-chip span.bump { animation: statBump 0.18s ease; }
+  @keyframes statBump { 0%{transform:scale(1)} 50%{transform:scale(1.35)} 100%{transform:scale(1)} }
+
+  #mazeCanvas {
+    display: block; margin: 0 auto; border-radius: 12px;
+    border: 3px solid var(--c-ink); background: var(--c-card);
+    transition: box-shadow 0.3s;
+  }
+  #mazeCanvas.glow-easy   { box-shadow: 0 0 0 4px rgba(76,175,125,0.25); }
+  #mazeCanvas.glow-medium { box-shadow: 0 0 0 4px rgba(245,166,35,0.25); }
+  #mazeCanvas.glow-hard   { box-shadow: 0 0 0 4px rgba(224,82,82,0.25); }
+
+  .key-hint { margin-top: 14px; font-size: 0.75rem; color: #bbb; font-weight: 600; letter-spacing: 0.06em; }
+  .swipe-hint { display: none; }
+
+  /* ── CALM BREAK SCREEN ── */
+  #calmBreakScreen {
+    position: relative; overflow: hidden;
+  }
+
+  .calm-doodles {
+    position: absolute; inset: 0; pointer-events: none;
+    z-index: 0;
+  }
+  .calm-doodles svg {
+    position: absolute; opacity: 0;
+  }
+  .calm-doodles svg.float-in {
+    animation: doodleFloat var(--dur, 3s) ease-in-out var(--delay, 0s) infinite alternate;
+    opacity: 1;
+  }
+  @keyframes doodleFloat {
+    from { transform: translateY(0) rotate(var(--rot0, 0deg)); opacity: 0.18; }
+    to   { transform: translateY(-10px) rotate(var(--rot1, 5deg)); opacity: 0.32; }
+  }
+
+  .calm-content { position: relative; z-index: 1; }
+
+  .calm-emoji-row {
+    font-size: 2.8rem; margin-bottom: 20px; letter-spacing: 0.12em;
+    animation: emojiDrift 4s ease-in-out infinite alternate;
+  }
+  @keyframes emojiDrift {
+    from { transform: translateY(0); filter: brightness(1); }
+    to   { transform: translateY(-5px); filter: brightness(1.05); }
+  }
+
+  .calm-word {
+    font-size: clamp(1.6rem, 5vw, 2.3rem); font-weight: 900;
+    color: var(--c-ink); line-height: 1.15; margin-bottom: 10px;
+  }
+
+  .calm-sub {
+    font-size: 0.95rem; color: var(--c-muted); margin: 0 auto 28px;
+    max-width: 340px; line-height: 1.6;
+  }
+
+  .calm-stats {
+    display: flex; gap: 14px; justify-content: center;
+    margin: 0 0 28px; flex-wrap: wrap;
+  }
+  .stat-card {
+    background: var(--c-card); border: 2px solid #ececec; border-radius: 16px;
+    padding: 14px 24px; min-width: 110px;
+    transition: transform 0.3s, box-shadow 0.3s;
+    animation: cardRise 0.5s cubic-bezier(.34,1.56,.64,1) both;
+  }
+  .stat-card:nth-child(1) { animation-delay: 0.05s; }
+  .stat-card:nth-child(2) { animation-delay: 0.15s; }
+  .stat-card:nth-child(3) { animation-delay: 0.25s; }
+  @keyframes cardRise {
+    from { opacity: 0; transform: translateY(14px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+  .stat-card .val { font-size: 1.5rem; font-weight: 900; color: var(--c-ink); }
+  .stat-card .lbl { font-size: 0.7rem; font-weight: 700; color: #bbb; letter-spacing: 0.1em; margin-top: 2px; }
+
+  /* Progress ring instead of bar */
+  .progress-ring-wrap {
+    margin: 0 auto 10px;
+    width: 72px; height: 72px; position: relative;
+  }
+  .progress-ring-wrap svg { transform: rotate(-90deg); }
+  .ring-bg { stroke: #ececec; fill: none; }
+  .ring-fill { stroke: var(--c-ink); fill: none; stroke-linecap: round; transition: stroke-dashoffset 1s linear; }
+  .ring-num {
+    position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
+    font-size: 1.1rem; font-weight: 900; color: var(--c-ink);
+  }
+  .countdown-label { font-size: 0.78rem; color: #bbb; font-weight: 700; }
+
+  /* ── OLD BREAK SCREEN (hidden, replaced) ── */
+  .break-emoji { font-size: 4rem; display: block; margin-bottom: 16px; }
+  .break-stats { display: flex; gap: 14px; justify-content: center; margin: 24px 0 30px; flex-wrap: wrap; }
+  .countdown-wrap { margin: 0 auto 8px; max-width: 340px; }
+  .countdown-track { height: 6px; background: #ececec; border-radius: 999px; overflow: hidden; margin-bottom: 8px; }
+  .countdown-fill { height: 100%; background: var(--c-ink); border-radius: 999px; transition: width 1s linear; }
+  .countdown-text { font-size: 0.78rem; color: #bbb; font-weight: 700; }
+
+  /* ── RESULTS ── */
+  .trophy-emoji { font-size: 4.5rem; display: block; margin-bottom: 12px; }
+  .player-name-result { color: var(--c-accent); }
+
+  .code-badge {
+    display: inline-block; font-size: 0.72rem; font-weight: 800;
+    letter-spacing: 0.1em; color: #999; background: #f0f0f0;
+    border-radius: 999px; padding: 4px 12px; margin-bottom: 20px;
+    text-transform: uppercase;
+  }
+
+  .results-cards { display: flex; flex-direction: column; gap: 10px; margin: 28px 0; text-align: left; }
+
+  .result-row {
+    background: var(--c-card); border: 2px solid #ececec; border-radius: 14px;
+    padding: 14px 20px; display: flex; justify-content: space-between; align-items: center;
+    animation: cardRise 0.4s cubic-bezier(.34,1.56,.64,1) both;
+  }
+  .result-row:nth-child(1) { animation-delay: 0.05s; }
+  .result-row:nth-child(2) { animation-delay: 0.15s; }
+  .result-row:nth-child(3) { animation-delay: 0.25s; }
+
+  .result-row .rname { font-weight: 800; font-size: 0.9rem; }
+  .result-row .rname .dot {
+    display: inline-block; width: 9px; height: 9px; border-radius: 50%; margin-right: 8px; vertical-align: 2px;
+  }
+  .dot.easy   { background: var(--c-easy); }
+  .dot.medium { background: var(--c-medium); }
+  .dot.hard   { background: var(--c-hard); }
+
+  .result-row .rtime  { font-weight: 900; font-size: 1rem; color: var(--c-ink); }
+  .result-row .rmoves { font-size: 0.75rem; color: #bbb; font-weight: 700; margin-top: 2px; }
+
+  .total-line {
+    display: flex; justify-content: space-between;
+    padding: 14px 20px; border-top: 2px dashed #e0e0e0; margin-top: 4px;
+  }
+  .total-line .tl-label { font-weight: 800; color: #555; font-size: 0.85rem; }
+  .total-line .tl-val   { font-weight: 900; color: var(--c-ink); font-size: 1rem; }
+
+  .history-section { margin: 24px 0; text-align: left; }
+  .history-title { font-size: 0.7rem; font-weight: 800; color: #ccc; letter-spacing: 0.12em; text-transform: uppercase; margin-bottom: 10px; }
+  .history-scroll { max-height: 120px; overflow-y: auto; }
+  .history-item { font-size: 0.78rem; color: #aaa; font-weight: 600; padding: 5px 0; border-bottom: 1px solid #f0f0f0; }
+  .history-item:last-child { border: none; }
+  .history-item b { color: #555; }
+  .history-item .code-tag { color: var(--c-accent); font-size: 0.7rem; margin-left: 4px; }
+
+  footer { margin-top: 40px; font-size: 0.72rem; color: #ccc; font-weight: 600; letter-spacing: 0.06em; }
+
+  /* ── PARTICIPANT FIELDS ── */
+  .participant-fields {
+    display: flex; flex-direction: column; gap: 16px;
+    align-items: center; margin-bottom: 24px;
+  }
+  .pfield-row { display: flex; gap: 12px; justify-content: center; flex-wrap: wrap; }
+  .pfield { display: flex; flex-direction: column; align-items: flex-start; gap: 6px; }
+  .pfield label {
+    font-size: 0.78rem; color: #999; font-weight: 700; letter-spacing: 0.08em;
+  }
+  .pfield input, .pfield select {
+    font-family: 'Nunito', sans-serif; font-size: 0.95rem; font-weight: 700;
+    padding: 10px 16px; border: 2px solid var(--c-border); border-radius: 12px;
+    outline: none; background: var(--c-card); width: 170px;
+    transition: border-color 0.2s, box-shadow 0.2s; color: var(--c-ink);
+  }
+  .pfield input:focus, .pfield select:focus {
+    border-color: var(--c-ink); box-shadow: 0 0 0 3px rgba(26,26,26,0.08);
+  }
+  .pfield input.has-value, .pfield select.has-value { border-color: var(--c-easy); }
+
+  /* ── EXPORT BUTTON ── */
+  .btn-export {
+    display: block; margin: 10px auto 0;
+    background: #f0f0f0; color: #555; border: 2px solid #ddd;
+    font-family: 'Nunito', sans-serif; font-size: 0.9rem; font-weight: 800;
+    padding: 12px 28px; border-radius: 999px; cursor: pointer;
+    transition: background 0.2s, border-color 0.2s, transform 0.15s, box-shadow 0.15s;
+  }
+  .btn-export:hover {
+    background: #e8ffe6; border-color: var(--c-easy); color: #2a7a50;
+    transform: translateY(-2px); box-shadow: 0 6px 16px rgba(76,175,125,0.18);
+  }
+  .btn-export:active { transform: translateY(1px); }
+
+  /* ── MOBILE SWIPE ── */
+  @media (max-width: 520px) {
+    .key-hint { display: none; }
+    .swipe-hint { display: block; margin-top: 14px; font-size: 0.75rem; color: #bbb; font-weight: 600; letter-spacing: 0.06em; }
+  }
+</style>
+</head>
+<body>
+
+<!-- WELCOME -->
+<div id="welcomeScreen" class="screen active">
+  <div class="site-label">maze<span>.</span>game</div>
+  <span class="wave-emoji">👋</span>
+  <h1 id="welcomeHeading">Hello there, maze runner!</h1>
+  <p class="subtitle" id="welcomeSub">Three levels await you — each one a little trickier than the last. Ready to find your way?</p>
+
+  <div class="participant-fields">
+    <div class="codename-wrap" style="margin-bottom:0">
+      <label>YOUR ANONYMOUS CODE</label>
+      <div class="codename-input-row">
+        <input type="text" id="playerCode" placeholder="e.g. nebula7" maxlength="16" autocomplete="off" spellcheck="false" />
+        <button class="btn-dice" id="diceBtn" title="Generate random code">🎲</button>
+      </div>
+      <div class="codename-hint">Your anonymous ID — no name needed</div>
+    </div>
+  </div>
+
+  <div class="level-pills">
+    <div class="pill easy">Easy — 23×23</div>
+    <div class="pill medium">Medium — 39×39</div>
+    <div class="pill hard">Hard — 47×47</div>
+  </div>
+
+  <button class="btn btn-primary" id="startBtn">Let's go →</button>
+</div>
+
+<!-- GAME -->
+<div id="gameScreen" class="screen">
+  <div class="top-bar">
+    <div class="level-badge" id="hudBadge">Easy</div>
+    <div class="stat-chips">
+      <div class="stat-chip">⏱ <span id="hudTimer">0.0s</span></div>
+      <div class="stat-chip">👟 <span id="hudMoves">0</span></div>
+    </div>
+  </div>
+  <canvas id="mazeCanvas"></canvas>
+  <div class="key-hint">USE ARROW KEYS TO NAVIGATE</div>
+  <div class="swipe-hint">SWIPE TO NAVIGATE</div>
+</div>
+
+<!-- CALM BREAK SCREEN — replaces old breakScreen -->
+<div id="calmBreakScreen" class="screen">
+  <!-- Maze-themed SVG doodles (rendered by JS) -->
+  <div class="calm-doodles" id="calmDoodles"></div>
+
+  <div class="calm-content">
+    <div class="site-label">maze<span>.</span>game</div>
+    <div class="calm-emoji-row" id="calmEmojiRow">🌿 ✨ 🌿</div>
+    <div class="calm-word" id="calmTitle">Level complete!</div>
+    <p class="calm-sub" id="calmSub">Breathe in… you're doing great. Next challenge loading.</p>
+
+    <div class="calm-stats">
+      <div class="stat-card"><div class="val" id="cbTime">–</div><div class="lbl">TIME</div></div>
+      <div class="stat-card"><div class="val" id="cbMoves">–</div><div class="lbl">MOVES</div></div>
+      <div class="stat-card"><div class="val" id="cbLevel">–</div><div class="lbl">LEVEL</div></div>
+    </div>
+
+    <div class="progress-ring-wrap">
+      <svg width="72" height="72" viewBox="0 0 72 72">
+        <circle class="ring-bg" cx="36" cy="36" r="30" stroke-width="5"/>
+        <circle class="ring-fill" id="ringFill" cx="36" cy="36" r="30" stroke-width="5"
+          stroke-dasharray="188.5" stroke-dashoffset="0"/>
+      </svg>
+      <div class="ring-num" id="ringNum">15</div>
+    </div>
+    <div class="countdown-label" id="calmCountLabel">seconds until next level</div>
+  </div>
+</div>
+
+<!-- RESULTS -->
+<div id="resultsScreen" class="screen">
+  <div class="site-label">maze<span>.</span>game</div>
+  <span class="trophy-emoji">🏆</span>
+  <h1>You crushed it, <span class="player-name-result" id="resultName">friend</span>!</h1>
+  <div class="code-badge" id="resultCodeBadge">code: –</div>
+  <p class="subtitle" id="resultSub">All three mazes conquered. Here's how you did:</p>
+
+  <div class="results-cards" id="resultsCards"></div>
+  <div class="total-line">
+    <div class="tl-label">Total time</div>
+    <div class="tl-val" id="totalTime">–</div>
+  </div>
+
+  <div class="history-section">
+    <div class="history-title">Previous runs</div>
+    <div class="history-scroll" id="historyScroll"></div>
+  </div>
+
+  <button class="btn btn-primary" id="playAgainBtn">Play again ↺</button>
+  <button class="btn btn-export" id="exportBtn">⬇ Export CSV</button>
+</div>
+
+<footer>maze.game — find your way</footer>
+
+<script>
+// ── DB ──────────────────────────────────────────────────────────────────────
+const DB_KEY = 'mazegame_v3';
+function loadDB() {
+  try {
+    return JSON.parse(localStorage.getItem(DB_KEY)) || { seeds: null, history: [], bests: {}, sessions: [] };
+  } catch { return { seeds: null, history: [], bests: {}, sessions: [] }; }
+}
+function saveDB(d) { localStorage.setItem(DB_KEY, JSON.stringify(d)); }
+
+// ── SEEDED PRNG ─────────────────────────────────────────────────────────────
+function rng(seed) {
+  let s = seed >>> 0;
+  return () => { s = Math.imul(1664525, s) + 1013904223 >>> 0; return s / 4294967296; };
+}
+
+// ── MAZE GEN — two paths, one real exit, one long dead-end ───────────────────
+function buildMaze(cols, rows, seed) {
+  const rand = rng(seed);
+  const g = Array.from({length: rows}, () => new Uint8Array(cols).fill(1));
+  const vis = Array.from({length: rows}, () => new Uint8Array(cols));
+
+  function carve(x, y) {
+    vis[y][x] = 1; g[y][x] = 0;
+    const dirs = [[0,-2],[2,0],[0,2],[-2,0]].sort(() => rand() - 0.5);
+    for (const [dx, dy] of dirs) {
+      const nx = x+dx, ny = y+dy;
+      if (nx >= 0 && nx < cols && ny >= 0 && ny < rows && !vis[ny][nx]) {
+        g[y+dy/2][x+dx/2] = 0; carve(nx, ny);
+      }
+    }
+  }
+  carve(1, 1);
+
+  // Single entrance (left) and single real exit (right wall)
+  g[1][0] = 0;
+  g[rows-2][cols-1] = 0;
+
+  // ── Carve a second path that branches off and dead-ends deep in the maze ──
+  // BFS to trace the main solution path
+  const prevMap = Array.from({length: rows}, () => new Array(cols).fill(null));
+  prevMap[1][0] = [1, 0];
+  const bfsQ = [[1, 0]];
+  let mainFound = false;
+  bfsOuter: while (bfsQ.length) {
+    const [r, c] = bfsQ.shift();
+    for (const [dr, dc] of [[-1,0],[1,0],[0,-1],[0,1]]) {
+      const nr = r+dr, nc = c+dc;
+      if (nr < 0 || nr >= rows || nc < 0 || nc >= cols) continue;
+      if (g[nr][nc] !== 0 || prevMap[nr][nc]) continue;
+      prevMap[nr][nc] = [r, c];
+      if (nr === rows-2 && nc === cols-1) { mainFound = true; break bfsOuter; }
+      bfsQ.push([nr, nc]);
+    }
+  }
+
+  if (mainFound) {
+    // Collect main path cells
+    const mainPath = [];
+    let cur = [rows-2, cols-1];
+    while (cur[0] !== 1 || cur[1] !== 0) {
+      mainPath.push(cur);
+      cur = prevMap[cur[0]][cur[1]];
+    }
+    mainPath.reverse();
+
+    // Branch at ~35% of the way along the main path
+    const branchIdx = Math.max(2, Math.floor(mainPath.length * 0.35));
+    const [bRow, bCol] = mainPath[branchIdx];
+
+    // Carve a long diverging corridor from the branch point.
+    // Target: reach a cell near the opposite corner from the real exit
+    // (top-right area) so the path feels like a real route, then dead-ends.
+    const TGT_R = 1, TGT_C = cols - 2; // top-right interior
+
+    const vis2 = Array.from({length: rows}, () => new Uint8Array(cols));
+    for (let r = 0; r < rows; r++)
+      for (let c = 0; c < cols; c++)
+        if (g[r][c] === 0) vis2[r][c] = 1; // don't re-open existing passages
+
+    const stack2 = [[bRow, bCol]];
+    vis2[bRow][bCol] = 1;
+    let altDone = false;
+    const maxSteps = cols * rows * 2;
+    let steps = 0;
+
+    while (stack2.length && !altDone && steps++ < maxSteps) {
+      const [ay, ax] = stack2[stack2.length - 1];
+
+      // Stop when we're within 2 cells of target — leave it as a dead-end
+      if (Math.abs(ay - TGT_R) <= 2 && Math.abs(ax - TGT_C) <= 2) {
+        altDone = true;
+        break;
+      }
+
+      // Bias toward target with jitter
+      const dirOpts = [[0,-2],[2,0],[0,2],[-2,0]];
+      dirOpts.sort((a, b) => {
+        const da = Math.abs((ay+a[0])-TGT_R) + Math.abs((ax+a[1])-TGT_C);
+        const db = Math.abs((ay+b[0])-TGT_R) + Math.abs((ax+b[1])-TGT_C);
+        return (da - db) + (rand() - 0.5) * 6;
+      });
+
+      let moved = false;
+      for (const [ddy, ddx] of dirOpts) {
+        const ny2 = ay+ddy, nx2 = ax+ddx;
+        if (ny2 > 0 && ny2 < rows-1 && nx2 > 0 && nx2 < cols-1 && !vis2[ny2][nx2]) {
+          g[ay+ddy/2][ax+ddx/2] = 0;
+          g[ny2][nx2] = 0;
+          vis2[ny2][nx2] = 1;
+          stack2.push([ny2, nx2]);
+          moved = true;
+          break;
+        }
+      }
+      if (!moved) stack2.pop();
+    }
+  }
+
+  return g;
+}
+
+// ── CODE WORD GENERATOR ──────────────────────────────────────────────────────
+const ADJECTIVES = ['amber','blue','calm','dark','echo','fern','gold','hazy','iron','jade','kind','lush','misty','neon','opal','pine','quiet','rose','sage','teal','ultra','vivid','warm','xenon','young','zesty'];
+const NOUNS      = ['atlas','brook','cedar','drift','ember','flint','grove','haven','inlet','junco','knoll','lunar','maple','nova','orbit','prism','quill','ridge','storm','tide','umbra','vault','whirl','xenon','yarrow','zenith'];
+
+function genCode() {
+  const a = ADJECTIVES[Math.floor(Math.random() * ADJECTIVES.length)];
+  const n = NOUNS[Math.floor(Math.random() * NOUNS.length)];
+  const d = Math.floor(Math.random() * 90) + 10;
+  return `${a}${n}${d}`;
+}
+
+// ── CONFIG ───────────────────────────────────────────────────────────────────
+// Difficulty bumped: Easy 15×15, Medium 21×21, Hard 31×31
+const LEVELS = [
+  { name: 'Easy',   cls: 'easy',   cols: 15, rows: 15, cell: 32 },
+  { name: 'Medium', cls: 'medium', cols: 21, rows: 21, cell: 24 },
+  { name: 'Hard',   cls: 'hard',   cols: 31, rows: 31, cell: 17 },
+];
+
+// ── CALM BREAK DOODLES ───────────────────────────────────────────────────────
+const DOODLE_SVGS = [
+  // Mini maze corner
+  `<svg width="64" height="64" viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <rect x="4" y="4" width="56" height="8" rx="4" fill="#1a1a1a"/>
+    <rect x="4" y="4" width="8" height="56" rx="4" fill="#1a1a1a"/>
+    <rect x="28" y="4" width="8" height="32" rx="4" fill="#1a1a1a"/>
+    <rect x="28" y="28" width="32" height="8" rx="4" fill="#1a1a1a"/>
+  </svg>`,
+  // Winding path
+  `<svg width="80" height="50" viewBox="0 0 80 50" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <path d="M4 25 Q20 4 40 25 Q60 46 76 25" stroke="#1a1a1a" stroke-width="5" stroke-linecap="round" fill="none"/>
+  </svg>`,
+  // Small arrow
+  `<svg width="40" height="40" viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <path d="M8 20 L28 20 M20 12 L28 20 L20 28" stroke="#1a1a1a" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
+  </svg>`,
+  // Tiny grid
+  `<svg width="56" height="56" viewBox="0 0 56 56" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <rect x="4" y="4" width="20" height="20" rx="3" fill="#1a1a1a"/>
+    <rect x="32" y="4" width="20" height="20" rx="3" fill="#1a1a1a"/>
+    <rect x="4" y="32" width="20" height="20" rx="3" fill="#1a1a1a"/>
+    <rect x="32" y="32" width="20" height="20" rx="3" fill="#1a1a1a"/>
+  </svg>`,
+  // Spiral
+  `<svg width="60" height="60" viewBox="0 0 60 60" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <path d="M30 30 Q42 18 42 30 Q42 46 22 46 Q6 46 6 30 Q6 10 30 10 Q52 10 52 30" stroke="#1a1a1a" stroke-width="4" stroke-linecap="round" fill="none"/>
+  </svg>`,
+  // Dotted trail
+  `<svg width="80" height="20" viewBox="0 0 80 20" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <circle cx="6" cy="10" r="4" fill="#1a1a1a"/>
+    <circle cx="22" cy="10" r="4" fill="#1a1a1a"/>
+    <circle cx="38" cy="10" r="4" fill="#1a1a1a"/>
+    <circle cx="54" cy="10" r="4" fill="#1a1a1a"/>
+    <circle cx="70" cy="10" r="4" fill="#1a1a1a"/>
+  </svg>`,
+];
+
+function renderDoodles() {
+  const container = document.getElementById('calmDoodles');
+  container.innerHTML = '';
+  const positions = [
+    { top: '5%',  left: '4%',   rot0: '-8deg',  rot1: '-2deg',  dur: '3.4s', delay: '0s'    },
+    { top: '8%',  right: '6%',  rot0: '4deg',   rot1: '10deg',  dur: '4.2s', delay: '0.4s'  },
+    { top: '30%', left: '2%',   rot0: '-5deg',  rot1: '3deg',   dur: '3.8s', delay: '0.8s'  },
+    { top: '55%', right: '3%',  rot0: '2deg',   rot1: '-6deg',  dur: '4.6s', delay: '0.2s'  },
+    { bottom:'10%',left: '6%',  rot0: '-3deg',  rot1: '4deg',   dur: '3.2s', delay: '1.0s'  },
+    { bottom:'8%', right: '5%', rot0: '6deg',   rot1: '-2deg',  dur: '5.0s', delay: '0.6s'  },
+  ];
+
+  positions.forEach((pos, i) => {
+    const svg = document.createElement('div');
+    svg.style.position = 'absolute';
+    if (pos.top)    svg.style.top    = pos.top;
+    if (pos.bottom) svg.style.bottom = pos.bottom;
+    if (pos.left)   svg.style.left   = pos.left;
+    if (pos.right)  svg.style.right  = pos.right;
+    svg.style.setProperty('--rot0',  pos.rot0);
+    svg.style.setProperty('--rot1',  pos.rot1);
+    svg.style.setProperty('--dur',   pos.dur);
+    svg.style.setProperty('--delay', pos.delay);
+    svg.innerHTML = DOODLE_SVGS[i % DOODLE_SVGS.length];
+    svg.querySelector('svg').classList.add('float-in');
+    svg.querySelector('svg').style.setProperty('--rot0',  pos.rot0);
+    svg.querySelector('svg').style.setProperty('--rot1',  pos.rot1);
+    svg.querySelector('svg').style.setProperty('--dur',   pos.dur);
+    svg.querySelector('svg').style.setProperty('--delay', pos.delay);
+    container.appendChild(svg);
+  });
+}
+
+// ── STATE ────────────────────────────────────────────────────────────────────
+let db, mazes, curLvl, px, py, moves, t0, ticker, breakTicker, runResults, playerCode, sessionStart;
+
+// ── DRAW ─────────────────────────────────────────────────────────────────────
+const cv  = document.getElementById('mazeCanvas');
+const ctx = cv.getContext('2d');
+
+function draw() {
+  const cfg = LEVELS[curLvl];
+  const maze = mazes[curLvl];
+  const { cols, rows, cell } = cfg;
+  cv.width  = cols * cell;
+  cv.height = rows * cell;
+  ctx.fillStyle = '#fff';
+  ctx.fillRect(0, 0, cv.width, cv.height);
+
+  const ex = cols - 1, ey = rows - 2;
+
+  for (let r = 0; r < rows; r++) {
+    for (let c = 0; c < cols; c++) {
+      if (maze[r][c] === 1) {
+        ctx.fillStyle = '#1a1a1a';
+        ctx.fillRect(c*cell, r*cell, cell, cell);
+      }
+    }
+  }
+
+  // Exit marker — 🏠 emoji
+  const em = Math.round(cell * 0.28);
+  const exitFontSize = Math.max(10, cell - 4);
+  ctx.font = `${exitFontSize}px sans-serif`;
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillText('🏠', ex*cell + cell/2, ey*cell + cell/2);
+
+  // Player dot — bright red
+  const pr = Math.round(cell * 0.28);
+  ctx.beginPath();
+  ctx.arc(px*cell + cell/2, py*cell + cell/2, pr, 0, Math.PI*2);
+  ctx.fillStyle = '#ff1744';
+  ctx.fill();
+
+  // Entrance hint arrow
+  ctx.fillStyle = '#ddd';
+  ctx.font = `${Math.max(10, cell - 6)}px sans-serif`;
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillText('▶', cell * 0.5, 1 * cell + cell/2);
+}
+
+function roundRect(ctx, x, y, w, h, r) {
+  ctx.moveTo(x+r, y);
+  ctx.lineTo(x+w-r, y); ctx.arcTo(x+w,y,x+w,y+r,r);
+  ctx.lineTo(x+w,y+h-r); ctx.arcTo(x+w,y+h,x+w-r,y+h,r);
+  ctx.lineTo(x+r,y+h); ctx.arcTo(x,y+h,x,y+h-r,r);
+  ctx.lineTo(x,y+r); ctx.arcTo(x,y,x+r,y,r);
+}
+
+// ── TIMER ────────────────────────────────────────────────────────────────────
+function elapsed() { return Date.now() - t0; }
+function fmtTime(ms) {
+  if (ms < 60000) return (ms/1000).toFixed(1) + 's';
+  return Math.floor(ms/60000) + 'm ' + ((ms%60000)/1000).toFixed(0) + 's';
+}
+
+// ── LEVEL START ───────────────────────────────────────────────────────────────
+function startLevel(idx) {
+  curLvl = idx;
+  const cfg = LEVELS[idx];
+  px = 0; py = 1; moves = 0;
+
+  const badge = document.getElementById('hudBadge');
+  badge.textContent = cfg.name;
+  badge.className = 'level-badge ' + cfg.cls;
+  document.getElementById('hudMoves').textContent = '0';
+  document.getElementById('hudTimer').textContent = '0.0s';
+  cv.className = 'glow-' + cfg.cls;
+
+  draw();
+  showScreen('gameScreen');
+  t0 = Date.now();
+  clearInterval(ticker);
+  ticker = setInterval(() => {
+    document.getElementById('hudTimer').textContent = fmtTime(elapsed());
+  }, 100);
+}
+
+// ── MOVE ─────────────────────────────────────────────────────────────────────
+function move(dx, dy) {
+  if (!document.getElementById('gameScreen').classList.contains('active')) return;
+  const { cols, rows } = LEVELS[curLvl];
+  const maze = mazes[curLvl];
+  const nx = px+dx, ny = py+dy;
+  if (nx < 0 || nx >= cols || ny < 0 || ny >= rows || maze[ny][nx] === 1) return;
+  px = nx; py = ny; moves++;
+  const mc = document.getElementById('hudMoves');
+  mc.textContent = moves;
+  mc.classList.remove('bump');
+  void mc.offsetWidth;
+  mc.classList.add('bump');
+  draw();
+  if (nx === cols-1 && ny === rows-2) finishLevel();
+}
+
+document.addEventListener('keydown', e => {
+  const k = { ArrowUp:[0,-1], ArrowDown:[0,1], ArrowLeft:[-1,0], ArrowRight:[1,0],
+               w:[0,-1], s:[0,1], a:[-1,0], d:[1,0] };
+  const d = k[e.key];
+  if (d) { e.preventDefault(); move(...d); }
+});
+
+// Touch/swipe
+let touchX = null, touchY = null;
+document.addEventListener('touchstart', e => {
+  touchX = e.touches[0].clientX;
+  touchY = e.touches[0].clientY;
+}, { passive: true });
+document.addEventListener('touchend', e => {
+  if (touchX === null) return;
+  const dx = e.changedTouches[0].clientX - touchX;
+  const dy = e.changedTouches[0].clientY - touchY;
+  const abs = (v) => Math.abs(v);
+  if (abs(dx) > abs(dy) && abs(dx) > 20) move(dx > 0 ? 1 : -1, 0);
+  else if (abs(dy) > abs(dx) && abs(dy) > 20) move(0, dy > 0 ? 1 : -1);
+  touchX = touchY = null;
+});
+
+// ── FINISH LEVEL ──────────────────────────────────────────────────────────────
+function finishLevel() {
+  clearInterval(ticker);
+  const ms = elapsed();
+  const cfg = LEVELS[curLvl];
+  runResults.push({
+    idx: curLvl, name: cfg.name, cls: cfg.cls,
+    time: ms, moves, wrongExits: 0,
+    completedAt: new Date().toISOString()
+  });
+
+  const k = cfg.cls;
+  if (!db.bests[k] || ms < db.bests[k]) db.bests[k] = ms;
+
+  const isLast = curLvl === LEVELS.length - 1;
+
+  // ── Save partial session checkpoint ──
+  saveSessionCheckpoint(isLast);
+
+  // After the LAST level → skip break, go straight to results
+  if (isLast) {
+    showResults();
+    return;
+  }
+
+  // Populate calm break screen (only shown between levels)
+  document.getElementById('cbTime').textContent  = fmtTime(ms);
+  document.getElementById('cbMoves').textContent = moves;
+  document.getElementById('cbLevel').textContent = cfg.name;
+
+  const calms = [
+    ['🌿 ✨ 🌿', 'Take a breath…', 'Great work finding your way through. A new path opens soon.'],
+    ['✨ 🍃 ✨', 'Nice navigation!', 'Every turn you chose was one step closer. Almost there.'],
+  ];
+  const [emoji, title, sub] = calms[curLvl % calms.length];
+  document.getElementById('calmEmojiRow').textContent = emoji;
+  document.getElementById('calmTitle').textContent    = title;
+  document.getElementById('calmSub').textContent      = sub;
+  document.getElementById('calmCountLabel').textContent = 'seconds until next level';
+
+  renderDoodles();
+  showScreen('calmBreakScreen');
+  runRingTimer(false);
+}
+
+// ── RING COUNTDOWN (10s) ──────────────────────────────────────────────────────
+function runRingTimer(isLast) {
+  const TOTAL = 10;
+  const CIRC  = 188.5;
+  let rem = TOTAL;
+
+  const fill = document.getElementById('ringFill');
+  const num  = document.getElementById('ringNum');
+
+  fill.style.transition = 'none';
+  fill.style.strokeDashoffset = '0';
+  num.textContent = TOTAL;
+
+  void fill.getBoundingClientRect();
+
+  clearInterval(breakTicker);
+  breakTicker = setInterval(() => {
+    rem--;
+    const progress = (TOTAL - rem) / TOTAL;
+    fill.style.transition = 'stroke-dashoffset 1s linear';
+    fill.style.strokeDashoffset = String(CIRC * progress);
+    num.textContent = rem > 0 ? rem : '';
+    if (rem <= 0) {
+      clearInterval(breakTicker);
+      startLevel(curLvl + 1);
+    }
+  }, 1000);
+}
+
+// ── SESSION SAVE ──────────────────────────────────────────────────────────────
+function saveSessionCheckpoint(isComplete) {
+  const sessionData = {
+    code: playerCode,
+    sessionStart,
+    levels: runResults.map(r => ({
+      name: r.name,
+      timeMs: r.time,
+      timeFormatted: fmtTime(r.time),
+      moves: r.moves,
+      wrongExits: r.wrongExits || 0,
+      completedAt: r.completedAt,
+    })),
+    isComplete,
+    totalMs: runResults.reduce((a, r) => a + r.time, 0),
+    savedAt: new Date().toISOString(),
+  };
+
+  // Store both under code key and append to sessions list
+  localStorage.setItem(`maze_session_${playerCode}`, JSON.stringify(sessionData));
+  db.sessions = db.sessions || [];
+  // Remove existing entry for this code+session
+  db.sessions = db.sessions.filter(s => !(s.code === playerCode && s.sessionStart === sessionStart));
+  db.sessions.unshift(sessionData);
+  if (db.sessions.length > 50) db.sessions = db.sessions.slice(0, 50);
+  saveDB(db);
+}
+
+// ── RESULTS ──────────────────────────────────────────────────────────────────
+function showResults() {
+  const total = runResults.reduce((a, r) => a + r.time, 0);
+  document.getElementById('resultName').textContent = playerCode;
+  document.getElementById('resultCodeBadge').textContent = `code: ${playerCode}`;
+
+  const congrats = [
+    'Three mazes down, zero walls left standing!',
+    'You navigated like a pro. Impressive!',
+    `Every turn, every move — perfectly executed.`
+  ];
+  document.getElementById('resultSub').textContent = congrats[Math.floor(Math.random()*congrats.length)];
+
+  document.getElementById('resultsCards').innerHTML = runResults.map(r => `
+    <div class="result-row">
+      <div>
+        <div class="rname"><span class="dot ${r.cls}"></span>${r.name}</div>
+        <div class="rmoves">${r.moves} moves · <span style="color:#e05252">${r.wrongExits || 0} wrong exit${(r.wrongExits||0)===1?'':'s'}</span></div>
+      </div>
+      <div class="rtime">${fmtTime(r.time)}</div>
+    </div>
+  `).join('');
+
+  document.getElementById('totalTime').textContent = fmtTime(total);
+
+  // Save run to history
+  db.history.unshift({
+    d: new Date().toLocaleDateString(),
+    code: playerCode,
+    t: runResults.map(r => fmtTime(r.time)),
+    tot: fmtTime(total)
+  });
+  if (db.history.length > 15) db.history = db.history.slice(0, 15);
+  saveDB(db);
+
+  const hs = document.getElementById('historyScroll');
+  hs.innerHTML = db.history.length <= 1
+    ? '<div class="history-item">No previous runs yet.</div>'
+    : db.history.slice(1).map(h =>
+        `<div class="history-item"><b>${h.participantName || h.code || '—'}</b><span class="code-tag"> ${h.code}</span> — ${h.d} — ${h.t.join(', ')} (total: ${h.tot})</div>`
+      ).join('');
+
+  showScreen('resultsScreen');
+}
+
+// ── CSV EXPORT ────────────────────────────────────────────────────────────────
+function exportCSV() {
+  // Build rows from all saved sessions in db
+  const sessions = (db.sessions || []).filter(s => s.isComplete);
+
+  // Also include current run if not yet in sessions (edge case)
+  const rows = [];
+  const header = [
+    'code','session_start',
+    'easy_time_ms','easy_time','easy_moves','easy_wrong_exits','easy_completed_at',
+    'medium_time_ms','medium_time','medium_moves','medium_wrong_exits','medium_completed_at',
+    'hard_time_ms','hard_time','hard_moves','hard_wrong_exits','hard_completed_at',
+    'total_time_ms','total_time','exported_at'
+  ];
+  rows.push(header.join(','));
+
+  const targets = sessions.length > 0 ? sessions : [];
+
+  // Always include current run at top
+  const currentSession = {
+    code: playerCode,
+    sessionStart,
+    levels: runResults.map(r => ({
+      name: r.name, timeMs: r.time, timeFormatted: fmtTime(r.time),
+      moves: r.moves, wrongExits: r.wrongExits || 0, completedAt: r.completedAt
+    })),
+    isComplete: true,
+    totalMs: runResults.reduce((a, r) => a + r.time, 0),
+  };
+  const allSessions = [currentSession, ...targets.filter(s => !(s.code === playerCode && s.sessionStart === sessionStart))];
+
+  allSessions.forEach(s => {
+    const lvl = (name) => s.levels.find(l => l.name === name) || {};
+    const e = lvl('Easy'), m = lvl('Medium'), h = lvl('Hard');
+    const esc = (v) => `"${String(v ?? '').replace(/"/g, '""')}"`;
+    rows.push([
+      esc(s.code || ''),
+      esc(s.sessionStart || ''),
+      e.timeMs ?? '', esc(e.timeFormatted || ''), e.moves ?? '', e.wrongExits ?? 0, esc(e.completedAt || ''),
+      m.timeMs ?? '', esc(m.timeFormatted || ''), m.moves ?? '', m.wrongExits ?? 0, esc(m.completedAt || ''),
+      h.timeMs ?? '', esc(h.timeFormatted || ''), h.moves ?? '', h.wrongExits ?? 0, esc(h.completedAt || ''),
+      s.totalMs ?? '', esc(fmtTime(s.totalMs || 0)),
+      esc(new Date().toISOString())
+    ].join(','));
+  });
+
+  const blob = new Blob([rows.join('\n')], { type: 'text/csv;charset=utf-8;' });
+  const url  = URL.createObjectURL(blob);
+  const a    = document.createElement('a');
+  const ts   = new Date().toISOString().slice(0,19).replace(/[:T]/g, '-');
+  a.href = url;
+  a.download = `maze_data_${playerCode}_${ts}.csv`;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+// ── HELPERS ──────────────────────────────────────────────────────────────────
+function showScreen(id) {
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+}
+
+// ── CODE WORD INPUT BEHAVIOR ──────────────────────────────────────────────────
+const codeInput = document.getElementById('playerCode');
+codeInput.addEventListener('input', () => {
+  codeInput.classList.toggle('has-value', codeInput.value.trim().length > 0);
+});
+
+document.getElementById('diceBtn').addEventListener('click', () => {
+  codeInput.value = genCode();
+  codeInput.classList.add('has-value');
+  codeInput.focus();
+});
+
+codeInput.addEventListener('keydown', e => {
+  if (e.key === 'Enter') document.getElementById('startBtn').click();
+});
+
+// ── BOOT ─────────────────────────────────────────────────────────────────────
+db = loadDB();
+if (!db.seeds) {
+  db.seeds = [0,1,2].map(() => Math.floor(Math.random() * 1e9));
+  saveDB(db);
+}
+mazes = LEVELS.map((cfg, i) => buildMaze(cfg.cols, cfg.rows, db.seeds[i]));
+
+// Auto-fill a code word suggestion
+codeInput.placeholder = genCode();
+
+document.getElementById('startBtn').addEventListener('click', () => {
+  const rawCode = codeInput.value.trim();
+  playerCode = rawCode || codeInput.placeholder;
+  sessionStart = new Date().toISOString();
+  runResults = [];
+  startLevel(0);
+});
+
+document.getElementById('exportBtn').addEventListener('click', exportCSV);
+
+document.getElementById('playAgainBtn').addEventListener('click', () => {
+  showScreen('welcomeScreen');
+  codeInput.value = '';
+  codeInput.placeholder = genCode();
+  codeInput.classList.remove('has-value');
+});
+</script>
+</head>
+</body>
+</html>
+
